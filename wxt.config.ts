@@ -20,6 +20,9 @@ export default defineConfig({
     ],
     optional_host_permissions: ["http://*/*", "https://*/*"],
     web_accessible_resources: [{ resources: ["gate.html"], matches: ["<all_urls>"] }],
-    action: { default_title: "Nukoblock" },
+    action: {
+      default_title: "Nukoblock",
+      default_icon: { 16: "icon/16.png", 32: "icon/32.png", 48: "icon/48.png" },
+    },
   },
 });
