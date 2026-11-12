@@ -111,3 +111,8 @@ export function validateSettings(value: unknown): Settings {
   }
   return s;
 }
+
+export function bar(value: number, max: number, width = 20) {
+  const filled = Math.round(Math.min(1, Math.max(0, value / (max || 1))) * width);
+  return "█".repeat(filled) + "░".repeat(width - filled);
+}

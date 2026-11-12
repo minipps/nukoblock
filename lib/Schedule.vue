@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import type { Site, Policy } from "./model";
+import { computed, ref } from "vue";
+import { policyFor, type Site, type Policy } from "./model";
 const props = defineProps<{ site: Site }>();
 const emit = defineEmits<{ save: [] }>();
 const days = ref([1, 2, 3, 4, 5]),
@@ -10,7 +10,24 @@ const days = ref([1, 2, 3, 4, 5]),
   minutes = ref(60),
   error = ref("");
 const names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const glyph = { block: "█", limit: "▒", track: "░" };
+const quick = { weekdays: [1, 2, 3, 4, 5], weekend: [0, 6], "every day": [0, 1, 2, 3, 4, 5, 6] };
 type Window = Site["windows"][number];
+// One row per weekday, one cell per hour; 2024-01-07 is a Sunday.
+const timeline = computed(() =>
+  names.map((name, d) => {
+    let row = "";
+    for (let h = 0; h < 24; h++) {
+      const p = policyFor(props.site, new Date(2024, 0, 7 + d, h));
+      row += p === props.site.policy ? "·" : glyph[p.mode];
+    }
+    return `${name} ${row}`;
+  }),
+);
+function label(w: Window) {
+  const key = Object.entries(quick).find(([, v]) => v.join() === w.days.toSorted().join())?.[0];
+  return key ?? w.days.map((d) => names[d]).join(" ");
+}
 function slots(w: Window) {
   const result = new Set<number>();
   const a = Number(w.start.slice(0, 2)) * 60 + Number(w.start.slice(3)),
@@ -53,37 +70,49 @@ function add() {
 </script>
 <template>
   <details>
-    <summary>Weekly schedule ({{ site.windows.length }})</summary>
-    <p v-for="(w, i) in site.windows" :key="i">
-      {{ w.days.map((d) => names[d]).join(", ") }} {{ w.start }}–{{ w.end }}:
-      {{ w.policy.mode }}
-      {{ w.policy.mode === "limit" ? w.policy.minutes + " min" : ""
-      }}<button
-        @click="
-          site.windows.splice(i, 1);
-          emit('save');
-        "
+    <summary>weekly schedule ({{ site.windows.length }})</summary>
+    <pre class="chart"><span class="dim">    0     6     12    18</span>
+<span v-for="row in timeline" :key="row" class="meter">{{ row }}
+</span><span class="dim">· default  █ block  ▒ limit  ░ track</span></pre>
+    <ul class="list">
+      <li v-for="(w, i) in site.windows" :key="i">
+        <span class="grow"
+          >{{ label(w) }} {{ w.start }}–{{ w.end }} → {{ w.policy.mode }}
+          {{ w.policy.mode === "limit" ? w.policy.minutes + " min" : "" }}</span
+        ><button
+          class="danger"
+          @click="
+            site.windows.splice(i, 1);
+            emit('save');
+          "
+        >
+          remove
+        </button>
+      </li>
+    </ul>
+    <fieldset class="row">
+      <legend>days</legend>
+      <label v-for="(name, i) in names" :key="name" class="tick chip"
+        ><input v-model="days" type="checkbox" :value="i" /><span>{{ name }}</span></label
       >
-        Remove window
-      </button>
-    </p>
-    <fieldset>
-      <legend>Days</legend>
-      <label v-for="(name, i) in names" :key="name"
-        ><input v-model="days" type="checkbox" :value="i" />{{ name }}</label
-      >
+      <button v-for="(v, k) in quick" :key="k" @click="days = [...v]">{{ k }}</button>
     </fieldset>
-    <label>Start<input v-model="start" type="time" /></label
-    ><label>End<input v-model="end" type="time" /></label
-    ><label
-      >Override<select v-model="mode">
-        <option value="block">Block</option>
-        <option value="track">Track only</option>
-        <option value="limit">Daily limit</option>
-      </select></label
-    ><label v-if="mode === 'limit'"
-      >Daily minutes<input v-model.number="minutes" type="number" min="1" /></label
-    ><button @click="add">Add window</button>
-    <p role="alert">{{ error }}</p>
+    <div class="row">
+      <label>from <input v-model="start" type="time" /></label>
+      <label>to <input v-model="end" type="time" /></label>
+    </div>
+    <fieldset class="row">
+      <legend>during this window</legend>
+      <label v-for="m in ['block', 'limit', 'track'] as const" :key="m" class="tick chip"
+        ><input v-model="mode" type="radio" :name="`window-${site.id}`" :value="m" /><span>{{
+          m
+        }}</span></label
+      >
+      <label v-if="mode === 'limit'">
+        <input v-model.number="minutes" type="number" min="1" aria-label="Daily minutes" /> min
+      </label>
+    </fieldset>
+    <button class="primary" @click="add">+ add window</button>
+    <p v-if="error" role="alert" class="warn">! {{ error }}</p>
   </details>
 </template>

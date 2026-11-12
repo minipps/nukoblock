@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalize, matches, policyFor, siteFor, type Site } from "./model";
+import { bar, normalize, matches, policyFor, siteFor, type Site } from "./model";
 const site: Site = {
   id: "a",
   targets: ["youtube.com"],
@@ -30,5 +30,12 @@ describe("rules", () => {
   it("handles overnight schedules", () => {
     expect(policyFor(site, new Date(2026, 10, 14, 1)).mode).toBe("block");
     expect(policyFor(site, new Date(2026, 10, 14, 3)).mode).toBe("limit");
+  });
+});
+describe("bar", () => {
+  it("fills proportionally and clamps", () => {
+    expect(bar(5, 10, 4)).toBe("██░░");
+    expect(bar(50, 10, 4)).toBe("████");
+    expect(bar(-1, 0, 4)).toBe("░░░░");
   });
 });
