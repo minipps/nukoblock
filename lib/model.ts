@@ -21,6 +21,7 @@ export type Settings = {
   colors: Record<string, string>;
   nudges: Nudge[];
   alternatives: string[];
+  show: { badge: boolean; page: boolean };
 };
 export const defaults: Settings = {
   version: 1,
@@ -39,6 +40,7 @@ export const defaults: Settings = {
     "step outside for a bit",
     "read a few pages of a book",
   ],
+  show: { badge: true, page: false },
 };
 export function normalize(input: string) {
   const u = new URL(input.includes("://") ? input : `https://${input}`);
@@ -87,6 +89,7 @@ export function validateSettings(value: unknown): Settings {
   // Settings saved before nudges existed get the defaults.
   s.nudges ??= [...defaults.nudges];
   s.alternatives ??= [...defaults.alternatives];
+  s.show ??= { ...defaults.show };
   const policy = (p: Policy) =>
     p &&
     ["track", "limit", "block"].includes(p.mode) &&
@@ -101,6 +104,8 @@ export function validateSettings(value: unknown): Settings {
     !s.nudges.every((n) => (nudges as readonly string[]).includes(n)) ||
     !Array.isArray(s.alternatives) ||
     !s.alternatives.every((a) => typeof a === "string" && a.length > 0 && a.length <= 200) ||
+    typeof s.show?.badge !== "boolean" ||
+    typeof s.show.page !== "boolean" ||
     !["background", "surface", "text", "accent"].every((k) => hexColor.test(s.colors[k] ?? ""))
   )
     throw Error("Unsupported or invalid settings");
@@ -140,4 +145,11 @@ export function bar(value: number, max: number, width = 20) {
 export function pickNudge(enabled: Nudge[], last?: Nudge, random = Math.random()): Nudge {
   const pool = enabled.length > 1 ? enabled.filter((n) => n !== last) : enabled;
   return pool[Math.floor(random * pool.length)] ?? "breathe";
+}
+
+// Fits the 4-character toolbar badge: 7m, 1h05, 12h.
+export function short(ms: number) {
+  const m = Math.floor(ms / 60000),
+    h = Math.floor(m / 60);
+  return h ? (h < 10 ? `${h}h${String(m % 60).padStart(2, "0")}` : `${h}h`) : `${m}m`;
 }

@@ -5,6 +5,7 @@ import {
   normalize,
   matches,
   pickNudge,
+  short,
   policyFor,
   siteFor,
   validateSettings,
@@ -57,9 +58,18 @@ describe("nudges", () => {
     expect(pickNudge([], undefined, 0.5)).toBe("breathe");
   });
   it("fills nudge settings for older saved settings", () => {
-    const { nudges, alternatives, ...old } = structuredClone(defaults);
+    const { nudges, alternatives, show, ...old } = structuredClone(defaults);
     const s = validateSettings(old);
+    expect(s.show).toEqual(show);
     expect(s.nudges).toEqual(nudges);
     expect(s.alternatives).toEqual(alternatives);
+  });
+});
+describe("short", () => {
+  it("fits the badge", () => {
+    expect(short(59999)).toBe("0m");
+    expect(short(42 * 60000)).toBe("42m");
+    expect(short(65 * 60000)).toBe("1h05");
+    expect(short(605 * 60000)).toBe("10h");
   });
 });

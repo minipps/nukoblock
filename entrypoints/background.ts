@@ -5,6 +5,7 @@ import {
   policyFor,
   day,
   pickNudge,
+  short,
   type Nudge,
 } from "../lib/model";
 
@@ -140,6 +141,25 @@ export default defineBackground(() => {
         }
       }
     }
+    await browser.action.setBadgeBackgroundColor({ color: settings.colors.accent! });
+    await browser.action.setBadgeTextColor?.({ color: settings.colors.background! });
+    for (const tab of tabs) {
+      if (!tab.active || tab.id === undefined) continue;
+      const site = siteFor(tab.url ?? "", settings.sites);
+      const spent = site ? short(usage[day()]?.[site.id] ?? 0) : "";
+      await browser.action.setBadgeText({ tabId: tab.id, text: settings.show.badge ? spent : "" });
+      if (!site) continue;
+      const policy = policyFor(site);
+      const label = policy.mode === "limit" ? `${spent} / ${short(policy.minutes * 60000)}` : spent;
+      // Fails on tabs we just redirected or lost access to; the next reconcile retries.
+      await browser.scripting
+        .executeScript({
+          target: { tabId: tab.id },
+          func: overlay,
+          args: [settings.show.page ? `${label} today` : "", settings.colors],
+        })
+        .catch(() => {});
+    }
     await browser.declarativeNetRequest.updateDynamicRules({
       removeRuleIds: (await browser.declarativeNetRequest.getDynamicRules()).map((r) => r.id),
       addRules: rules,
@@ -228,3 +248,21 @@ export default defineBackground(() => {
   });
   run();
 });
+
+// Runs inside the page: draws (or with empty text, removes) the corner timer.
+function overlay(text: string, colors: Record<string, string>) {
+  const id = "nukoblock-timer";
+  let host = document.getElementById(id);
+  if (!text) return host?.remove();
+  if (!host) {
+    host = document.createElement("div");
+    host.id = id;
+    host.style.cssText =
+      "all:initial;position:fixed;top:8px;right:8px;z-index:2147483647;pointer-events:none";
+    host.attachShadow({ mode: "open" }).append(document.createElement("div"));
+    document.documentElement.append(host);
+  }
+  const box = host.shadowRoot!.firstElementChild as HTMLElement;
+  box.style.cssText = `font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;padding:4px 8px;opacity:.9;background:${colors.background};color:${colors.text};border:1px solid ${colors.accent}`;
+  box.textContent = `=^.^= ${text}`;
+}

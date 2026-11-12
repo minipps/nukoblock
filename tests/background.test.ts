@@ -90,6 +90,12 @@ beforeEach(() => {
       onReferenceFragmentUpdated: event(),
     },
     permissions: { onRemoved: event() },
+    action: {
+      setBadgeText: vi.fn<() => void>(),
+      setBadgeBackgroundColor: vi.fn<() => void>(),
+      setBadgeTextColor: vi.fn<() => void>(),
+    },
+    scripting: { executeScript: vi.fn<() => Promise<unknown[]>>(async () => []) },
   });
 });
 afterEach(() => {
@@ -150,4 +156,19 @@ it("lets a 'how long' nudge through only with a duration, then sends the tab bac
   expect(b.tabs.update).toHaveBeenCalledWith(1, {
     url: "chrome-extension://test/gate.html#" + url,
   });
+});
+it("shows today's time in the badge and, when enabled, on the page", async () => {
+  local.usage = { [day()]: { video: 65 * 60000 } };
+  local.settings.show = { badge: true, page: true };
+  await import("../entrypoints/background");
+  await flush();
+  const b = (globalThis as any).browser;
+  expect(b.action.setBadgeText).toHaveBeenCalledWith({ tabId: 1, text: "1h05" });
+  expect(b.action.setBadgeText).not.toHaveBeenCalledWith(expect.objectContaining({ tabId: 2 }));
+  expect(b.scripting.executeScript).toHaveBeenCalledWith(
+    expect.objectContaining({
+      target: { tabId: 1 },
+      args: ["1h05 / 30m today", expect.anything()],
+    }),
+  );
 });

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, useTemplateRef } from "vue";
 import { browser } from "wxt/browser";
 import {
   bar,
@@ -29,7 +29,8 @@ const input = ref(""),
   nudge = ref<Nudge>("breathe"),
   feeling = ref(""),
   suggestions = ref<string[]>([]),
-  alternative = ref("");
+  alternative = ref(""),
+  current = ref("");
 const nudgeNames: Record<Nudge, string> = {
   breathe: "breathe",
   elsewhere: "do this instead",
@@ -99,6 +100,22 @@ const preview = computed(() => {
 });
 const destination = location.hash.slice(1);
 const host = URL.canParse(destination) ? new URL(destination).hostname : "";
+const watching = computed(() => !!siteFor(current.value, settings.value.sites));
+// Whole domain, not the page path, minus "www." so subdomains like m. match too.
+const currentHost = computed(() =>
+  URL.canParse(current.value) && web.test(current.value)
+    ? new URL(current.value).hostname.replace(www, "")
+    : "",
+);
+const addBox = useTemplateRef<HTMLInputElement>("addBox");
+// Site access is requested from the options tab: a prompt raised from the popup gets
+// covered by it in Firefox, and the popup may close before the answer arrives.
+function addFromPopup() {
+  void browser.tabs.create({
+    url: browser.runtime.getURL("/options.html") + "#add=" + encodeURIComponent(currentHost.value),
+  });
+  window.close();
+}
 const siteToday = computed(() => {
   const site = siteFor(destination, settings.value.sites);
   return site ? minutes(today.value[site.id] ?? 0) : 0;
@@ -142,6 +159,13 @@ onMounted(async () => {
   settings.value = validateSettings(stored.settings ?? structuredClone(defaults));
   usage.value = (stored.usage as typeof usage.value) ?? {};
   await refreshPermissions();
+  if (props.page === "popup")
+    current.value = (await browser.tabs.query({ active: true, currentWindow: true }))[0]?.url ?? "";
+  if (props.page === "options" && location.hash.startsWith("#add=")) {
+    input.value = decodeURIComponent(location.hash.slice(5));
+    window.history.replaceState(null, "", location.pathname);
+    addBox.value?.focus();
+  }
   if (props.page === "gate") {
     const result = await browser.runtime.sendMessage({
       type: "pause",
@@ -206,10 +230,6 @@ async function clearStats() {
     await browser.storage.local.set({ usage: {} });
     usage.value = {};
   }
-}
-async function addCurrent() {
-  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-  if (tab?.url) await add(tab.url);
 }
 function minutes(ms: number) {
   return Math.round(ms / 60000);
@@ -314,7 +334,9 @@ function status(site: Site) {
       </ul>
       <p v-if="error" role="alert" class="warn">! {{ error }}</p>
       <div class="row">
-        <button class="primary" @click="addCurrent">+ this site</button>
+        <button class="primary" :disabled="watching || !currentHost" @click="addFromPopup">
+          {{ watching ? "✓ watching" : "+ this site" }}
+        </button>
         <button @click="browser.runtime.openOptionsPage()">settings</button>
       </div>
     </main>
@@ -352,6 +374,7 @@ function status(site: Site) {
           <h2>add a site</h2>
           <form class="row" @submit.prevent="add(input)">
             <input
+              ref="addBox"
               v-model="input"
               class="grow"
               aria-label="Domains or URL paths"
@@ -499,6 +522,19 @@ function status(site: Site) {
 
       <section v-else class="panel">
         <h2>appearance</h2>
+        <fieldset class="row">
+          <legend>show time on site</legend>
+          <label class="tick chip"
+            ><input v-model="settings.show.badge" type="checkbox" @change="save" /><span
+              >toolbar badge</span
+            ></label
+          >
+          <label class="tick chip"
+            ><input v-model="settings.show.page" type="checkbox" @change="save" /><span
+              >top-right of the page</span
+            ></label
+          >
+        </fieldset>
         <p class="dim">themes:</p>
         <div class="row">
           <button
@@ -529,6 +565,8 @@ function status(site: Site) {
 </template>
 <script lang="ts">
 const separators = /[\s,]+/;
+const web = /^https?:/;
+const www = /^www\./;
 const linkish = /^(https?:\/\/)?[\w-]+(\.[\w-]+)+(\/\S*)?$/;
 function luminance(hex: string) {
   const channels = hex

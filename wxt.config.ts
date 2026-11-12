@@ -15,6 +15,7 @@ export default defineConfig({
       "tabs",
       "webNavigation",
       "alarms",
+      "scripting",
       "idle",
       "declarativeNetRequestWithHostAccess",
     ],
