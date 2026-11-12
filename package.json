@@ -1,0 +1,32 @@
+{
+  "name": "nukoblock",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox --mv3",
+    "check": "npm run lint && npm run format:check && npm run typecheck",
+    "test": "vitest run",
+    "postinstall": "wxt prepare",
+    "lint": "oxlint --deny-warnings .",
+    "lint:fix": "oxlint --fix .",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@e18e/eslint-plugin": "^0.8.1",
+    "@wxt-dev/module-vue": "^1.0.0",
+    "oxfmt": "^0.78.0",
+    "oxlint": "^1.93.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.12",
+    "vue-tsc": "^3.0.0",
+    "wxt": "^0.21.5"
+  }
+}
