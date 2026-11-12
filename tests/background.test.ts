@@ -125,3 +125,29 @@ it("does not count muted background playback", async () => {
   await flush();
   expect(local.usage[day()]?.video ?? 0).toBe(0);
 });
+it("lets a 'how long' nudge through only with a duration, then sends the tab back", async () => {
+  local.settings.sites[0].policy.pause = true;
+  local.settings.nudges = ["duration"];
+  await import("../entrypoints/background");
+  await flush();
+  const b = (globalThis as any).browser;
+  const handler = b.runtime.onMessage.addListener.mock.calls[0][0];
+  const url = "https://youtube.com/watch?v=1";
+  const sender = { tab: { id: 1 }, url: "chrome-extension://test/gate.html#" + url };
+  expect(await handler({ type: "pause", url }, sender)).toEqual({
+    blocked: false,
+    nudge: "duration",
+  });
+  await handler({ type: "continue", url }, sender);
+  expect(session.runtime.grants[1]).toBeUndefined();
+  await handler({ type: "continue", url, minutes: 5 }, sender);
+  expect(session.runtime.grants[1].until).toBe(Date.now() + 300000);
+  b.tabs.update.mockClear();
+  vi.advanceTimersByTime(300000);
+  alarm();
+  await flush();
+  expect(session.runtime.grants[1]).toBeUndefined();
+  expect(b.tabs.update).toHaveBeenCalledWith(1, {
+    url: "chrome-extension://test/gate.html#" + url,
+  });
+});

@@ -13,10 +13,14 @@ export type Site = {
   policy: Policy;
   windows: { days: number[]; start: string; end: string; policy: Policy }[];
 };
+export const nudges = ["breathe", "elsewhere", "feeling", "duration"] as const;
+export type Nudge = (typeof nudges)[number];
 export type Settings = {
   version: 1;
   sites: Site[];
   colors: Record<string, string>;
+  nudges: Nudge[];
+  alternatives: string[];
 };
 export const defaults: Settings = {
   version: 1,
@@ -27,6 +31,14 @@ export const defaults: Settings = {
     text: "#cdd6f4",
     accent: "#cba6f7",
   },
+  nudges: [...nudges],
+  alternatives: [
+    "stretch for a minute",
+    "drink a glass of water",
+    "message a friend",
+    "step outside for a bit",
+    "read a few pages of a book",
+  ],
 };
 export function normalize(input: string) {
   const u = new URL(input.includes("://") ? input : `https://${input}`);
@@ -72,6 +84,9 @@ export const day = (d = new Date()) =>
 export function validateSettings(value: unknown): Settings {
   if (!value || typeof value !== "object") throw Error("Invalid saved settings");
   const s = value as Settings;
+  // Settings saved before nudges existed get the defaults.
+  s.nudges ??= [...defaults.nudges];
+  s.alternatives ??= [...defaults.alternatives];
   const policy = (p: Policy) =>
     p &&
     ["track", "limit", "block"].includes(p.mode) &&
@@ -82,6 +97,10 @@ export function validateSettings(value: unknown): Settings {
     s.version !== 1 ||
     !Array.isArray(s.sites) ||
     !s.colors ||
+    !Array.isArray(s.nudges) ||
+    !s.nudges.every((n) => (nudges as readonly string[]).includes(n)) ||
+    !Array.isArray(s.alternatives) ||
+    !s.alternatives.every((a) => typeof a === "string" && a.length > 0 && a.length <= 200) ||
     !["background", "surface", "text", "accent"].every((k) => hexColor.test(s.colors[k] ?? ""))
   )
     throw Error("Unsupported or invalid settings");
@@ -115,4 +134,10 @@ export function validateSettings(value: unknown): Settings {
 export function bar(value: number, max: number, width = 20) {
   const filled = Math.round(Math.min(1, Math.max(0, value / (max || 1))) * width);
   return "█".repeat(filled) + "░".repeat(width - filled);
+}
+
+// Picks a random enabled nudge, avoiding an immediate repeat when there is a choice.
+export function pickNudge(enabled: Nudge[], last?: Nudge, random = Math.random()): Nudge {
+  const pool = enabled.length > 1 ? enabled.filter((n) => n !== last) : enabled;
+  return pool[Math.floor(random * pool.length)] ?? "breathe";
 }

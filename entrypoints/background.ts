@@ -1,10 +1,19 @@
-import { validateSettings, defaults, siteFor, policyFor, day } from "../lib/model";
+import {
+  validateSettings,
+  defaults,
+  siteFor,
+  policyFor,
+  day,
+  pickNudge,
+  type Nudge,
+} from "../lib/model";
 
 type Usage = Record<string, Record<string, number>>;
-type Grant = { site: string; last: number };
+type Grant = { site: string; last: number; until?: number };
 type Session = {
   grants: Record<number, Grant>;
-  pauses: Record<number, { url: string; since: number }>;
+  pauses: Record<number, { url: string; since: number; nudge: Nudge }>;
+  lastNudge?: Nudge;
   active: string[];
   checkpoint: number;
 };
@@ -66,7 +75,11 @@ export default defineBackground(() => {
       }
     }
     for (const [key, grant] of Object.entries(session.grants))
-      if (!tabs.some((t) => t.id === Number(key)) || now - grant.last >= 300000)
+      if (
+        !tabs.some((t) => t.id === Number(key)) ||
+        now - grant.last >= 300000 ||
+        now >= (grant.until ?? Infinity)
+      )
         delete session.grants[Number(key)];
     for (const key of Object.keys(session.pauses))
       if (!tabs.some((t) => t.id === Number(key))) delete session.pauses[Number(key)];
@@ -164,19 +177,29 @@ export default defineBackground(() => {
       if (blocked) return { blocked: true };
       const id = sender.tab.id;
       if (message.type === "pause") {
-        if (session.pauses[id]?.url !== message.url)
-          session.pauses[id] = { url: message.url, since: Date.now() };
+        // Reloading the gate keeps its nudge, so the breathing wait can't be re-rolled away.
+        if (session.pauses[id]?.url !== message.url) {
+          const nudge = pickNudge(settings.nudges, session.lastNudge);
+          session.pauses[id] = { url: message.url, since: Date.now(), nudge };
+          session.lastNudge = nudge;
+        }
         await browser.storage.session.set({ runtime: session });
-        return { blocked: false };
+        return { blocked: false, nudge: session.pauses[id]!.nudge };
       }
       const pause = session.pauses[id];
+      const minutes = [5, 15, 30].includes(message.minutes) ? (message.minutes as number) : 0;
       if (
         message.type === "continue" &&
         pause !== undefined &&
         pause.url === message.url &&
-        Date.now() - pause.since >= 10000
+        (pause.nudge !== "breathe" || Date.now() - pause.since >= 10000) &&
+        (pause.nudge !== "duration" || minutes)
       ) {
-        session.grants[id] = { site: site.id, last: Date.now() };
+        session.grants[id] = {
+          site: site.id,
+          last: Date.now(),
+          ...(minutes && { until: Date.now() + minutes * 60000 }),
+        };
         delete session.pauses[id];
         await browser.storage.session.set({ runtime: session });
         await reconcile();

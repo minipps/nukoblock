@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { bar, normalize, matches, policyFor, siteFor, type Site } from "./model";
+import {
+  bar,
+  defaults,
+  normalize,
+  matches,
+  pickNudge,
+  policyFor,
+  siteFor,
+  validateSettings,
+  type Site,
+} from "./model";
 const site: Site = {
   id: "a",
   targets: ["youtube.com"],
@@ -37,5 +47,19 @@ describe("bar", () => {
     expect(bar(5, 10, 4)).toBe("██░░");
     expect(bar(50, 10, 4)).toBe("████");
     expect(bar(-1, 0, 4)).toBe("░░░░");
+  });
+});
+describe("nudges", () => {
+  it("never repeats the last nudge when there is a choice", () => {
+    for (const r of [0, 0.5, 0.99])
+      expect(pickNudge(["breathe", "feeling"], "breathe", r)).toBe("feeling");
+    expect(pickNudge(["duration"], "duration", 0.5)).toBe("duration");
+    expect(pickNudge([], undefined, 0.5)).toBe("breathe");
+  });
+  it("fills nudge settings for older saved settings", () => {
+    const { nudges, alternatives, ...old } = structuredClone(defaults);
+    const s = validateSettings(old);
+    expect(s.nudges).toEqual(nudges);
+    expect(s.alternatives).toEqual(alternatives);
   });
 });

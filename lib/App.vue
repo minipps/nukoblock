@@ -7,7 +7,10 @@ import {
   validateSettings,
   normalize,
   policyFor,
+  siteFor,
   day,
+  nudges,
+  type Nudge,
   type Settings,
   type Site,
 } from "./model";
@@ -22,7 +25,33 @@ const input = ref(""),
   blocked = ref(true),
   seconds = ref(10),
   saved = ref(false),
-  tab = ref<"sites" | "stats" | "look">("sites");
+  tab = ref<"sites" | "stats" | "look">("sites"),
+  nudge = ref<Nudge>("breathe"),
+  feeling = ref(""),
+  suggestions = ref<string[]>([]),
+  alternative = ref("");
+const nudgeNames: Record<Nudge, string> = {
+  breathe: "breathe",
+  elsewhere: "do this instead",
+  feeling: "how do you feel?",
+  duration: "how long?",
+};
+const questions: Record<Nudge, string> = {
+  breathe: "What brought you here?",
+  elsewhere: "Why not focus elsewhere?",
+  feeling: "How are you feeling?",
+  duration: "How long do you want to stay?",
+};
+const feelings: Record<string, string> = {
+  curious: "Curious is good. Find your answer, then come back to me.",
+  tired: "Maybe a nap would help more than a scroll? zZz",
+  bored: "Boredom is where the good ideas start.",
+  lonely: "Someone would love to hear from you right now.",
+  social: "A real chat might beat the feed.",
+  stressed: "Stretch with me first? I'll wait.",
+  inspired: "Ooh! Make something with that spark.",
+  productive: "Nice. Keep it short and sweet.",
+};
 const period = ref(7);
 const banner = [
   "█▄  █ █   █ █  ▄▀ ▄▀▀▀▄ █▀▀▀▄ █     ▄▀▀▀▄ ▄▀▀▀▀ █  ▄▀",
@@ -70,6 +99,21 @@ const preview = computed(() => {
 });
 const destination = location.hash.slice(1);
 const host = URL.canParse(destination) ? new URL(destination).hostname : "";
+const siteToday = computed(() => {
+  const site = siteFor(destination, settings.value.sites);
+  return site ? minutes(today.value[site.id] ?? 0) : 0;
+});
+const href = (a: string) => (linkish.test(a) ? (a.includes("://") ? a : `https://${a}`) : "");
+function proceed(minutes?: number) {
+  void browser.runtime.sendMessage({ type: "continue", url: destination, minutes });
+}
+function addAlternative() {
+  const text = alternative.value.trim();
+  if (!text) return;
+  settings.value.alternatives.push(text.slice(0, 200));
+  alternative.value = "";
+  void save();
+}
 const presets = [
   { name: "YouTube", targets: ["youtube.com", "youtu.be"] },
   { name: "Reddit", targets: ["reddit.com"] },
@@ -104,6 +148,8 @@ onMounted(async () => {
       url: destination,
     });
     blocked.value = result?.blocked !== false;
+    nudge.value = result?.nudge ?? "breathe";
+    suggestions.value = settings.value.alternatives.toSorted(() => Math.random() - 0.5).slice(0, 3);
     timer = setInterval(() => {
       if (document.visibilityState === "visible") seconds.value = Math.max(0, seconds.value - 1);
     }, 1000);
@@ -186,26 +232,66 @@ function status(site: Site) {
     <!-- ───────────── gate ───────────── -->
     <main v-if="page === 'gate'" class="gate">
       <p class="bubble" role="status">
-        {{ blocked ? "Time for a little space." : "What brought you here?" }}
+        {{
+          blocked
+            ? "Time for a little space."
+            : nudge === "feeling" && feeling
+              ? feelings[feeling]
+              : questions[nudge]
+        }}
       </p>
       <Cat />
       <h1 class="sr-only">Nukoblock</h1>
       <p class="dim">
-        <span v-if="host">&gt; {{ host }} · </span>
-        {{ blocked ? "blocked by your current policy" : "take a slow breath before you decide" }}
+        <span v-if="host">&gt; {{ host }} · {{ siteToday }} min today · </span>
+        {{ blocked ? "blocked by your current policy" : "take a moment before you decide" }}
       </p>
-      <p v-if="!blocked" class="breath" aria-live="off">
-        <span class="meter">{{ bar(10 - seconds, 10) }}</span>
-        {{ seconds ? (seconds % 4 < 2 ? "…and out" : "breathe in…") : "ready" }}
-      </p>
+      <template v-if="!blocked">
+        <p v-if="nudge === 'breathe'" class="breath" aria-live="off">
+          <span class="meter">{{ bar(10 - seconds, 10) }}</span>
+          {{ seconds ? (seconds % 4 < 2 ? "…and out" : "breathe in…") : "ready" }}
+        </p>
+        <template v-else-if="nudge === 'elsewhere'">
+          <ul class="list suggestions">
+            <li v-for="a in suggestions" :key="a">
+              <a v-if="href(a)" :href="href(a)">{{ a }} ↗</a><span v-else>{{ a }}</span>
+            </li>
+          </ul>
+          <p class="dim">pick your own in settings → nudges.</p>
+        </template>
+        <template v-else-if="nudge === 'feeling'">
+          <p class="breath">
+            i'm opening <strong>{{ host || "this" }}</strong> because i feel
+            <span class="blank">{{ feeling || "________" }}</span>
+          </p>
+          <div class="row center chips">
+            <button
+              v-for="(_, f) in feelings"
+              :key="f"
+              :aria-pressed="feeling === f"
+              @click="feeling = f"
+            >
+              {{ f }}
+            </button>
+          </div>
+        </template>
+        <template v-else>
+          <div class="row center chips">
+            <button v-for="m in [5, 15, 30]" :key="m" class="big" @click="proceed(m)">
+              {{ m }} min
+            </button>
+          </div>
+          <p class="dim">the cat comes back when your time is up.</p>
+        </template>
+      </template>
       <div class="row center">
         <button class="primary" @click="leave">leave</button>
         <button
-          v-if="!blocked"
-          :disabled="seconds > 0"
-          @click="browser.runtime.sendMessage({ type: 'continue', url: destination })"
+          v-if="!blocked && nudge !== 'duration'"
+          :disabled="nudge === 'breathe' ? seconds > 0 : nudge === 'feeling' && !feeling"
+          @click="proceed()"
         >
-          {{ seconds ? `continue in ${seconds}s` : "continue" }}
+          {{ nudge === "breathe" && seconds ? `continue in ${seconds}s` : "continue" }}
         </button>
         <button @click="browser.runtime.openOptionsPage()">settings</button>
       </div>
@@ -288,7 +374,48 @@ function status(site: Site) {
             </button>
           </div>
           <p v-if="error" role="alert" class="warn">! {{ error }}</p>
-          <p class="dim">new sites start with a 30 min daily limit and a breathing pause.</p>
+          <p class="dim">new sites start with a 30 min daily limit and a nudge before entering.</p>
+        </section>
+
+        <section class="panel">
+          <h2>nudges</h2>
+          <p class="dim">before a site with a pause opens, the cat picks one of these:</p>
+          <fieldset class="row">
+            <legend>use</legend>
+            <label v-for="n in nudges" :key="n" class="tick chip">
+              <input v-model="settings.nudges" type="checkbox" :value="n" @change="save" /><span>{{
+                nudgeNames[n]
+              }}</span>
+            </label>
+          </fieldset>
+          <p v-if="!settings.nudges.length" class="dim">
+            none picked, so the cat will just breathe.
+          </p>
+          <h3>things to do instead</h3>
+          <ul class="list">
+            <li v-for="(a, i) in settings.alternatives" :key="a + i">
+              <span class="grow">{{ a }}</span>
+              <button
+                class="danger"
+                @click="
+                  settings.alternatives.splice(i, 1);
+                  save();
+                "
+              >
+                remove
+              </button>
+            </li>
+          </ul>
+          <form class="row" @submit.prevent="addAlternative">
+            <input
+              v-model="alternative"
+              class="grow"
+              maxlength="200"
+              aria-label="Something to do instead"
+              placeholder="call a friend, duolingo.com, …"
+            />
+            <button type="submit">add</button>
+          </form>
         </section>
 
         <section class="panel">
@@ -339,7 +466,7 @@ function status(site: Site) {
             </div>
             <label class="tick">
               <input v-model="site.policy.pause" type="checkbox" @change="save" /><span
-                >10-second breathing pause before entering</span
+                >pause with a nudge before entering</span
               >
             </label>
             <Schedule :site="site" @save="save" />
@@ -402,6 +529,7 @@ function status(site: Site) {
 </template>
 <script lang="ts">
 const separators = /[\s,]+/;
+const linkish = /^(https?:\/\/)?[\w-]+(\.[\w-]+)+(\/\S*)?$/;
 function luminance(hex: string) {
   const channels = hex
     .slice(1)
