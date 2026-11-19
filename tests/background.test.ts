@@ -185,6 +185,14 @@ it("lets tabs opened from a granted tab skip the nudge, keeping its deadline", a
       { tab: { id: 4, openerTabId: 2 }, url: gate + child },
     ),
   ).toMatchObject({ nudge: "duration" });
+  local.settings.inherit = false;
+  tabs.push({ id: 5, url: gate + child, openerTabId: 1, windowId: 1 });
+  expect(
+    await handler(
+      { type: "pause", url: child },
+      { tab: { id: 5, openerTabId: 1 }, url: gate + child },
+    ),
+  ).toMatchObject({ nudge: "duration" });
 });
 it("shows today's time in the badge and, when enabled, on the page", async () => {
   local.usage = { [day()]: { video: 65 * 60000 } };

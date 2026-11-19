@@ -414,6 +414,11 @@ function status(site: Site) {
           <p v-if="!settings.nudges.length" class="dim">
             none picked, so the cat will just breathe.
           </p>
+          <label class="tick chip"
+            ><input v-model="settings.inherit" type="checkbox" @change="save" /><span
+              >skip the nudge for tabs opened from a site you already passed</span
+            ></label
+          >
           <h3>things to do instead</h3>
           <ul class="list">
             <li v-for="(a, i) in settings.alternatives" :key="a + i">
