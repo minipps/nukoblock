@@ -44,6 +44,28 @@ jobs:
           if-no-files-found: error
           include-hidden-files: true
 
+  amo:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: release-packages
+          path: packages
+      - name: Submit to addons.mozilla.org
+        env:
+          FIREFOX_EXTENSION_ID: nukoblock@nukoblock.local
+          FIREFOX_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          FIREFOX_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: npx wxt submit --firefox-zip packages/*-firefox.zip --firefox-sources-zip packages/*-sources.zip
+
   publish:
     needs: build
     runs-on: ubuntu-latest
