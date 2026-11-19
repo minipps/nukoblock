@@ -58,9 +58,10 @@ describe("nudges", () => {
     expect(pickNudge([], undefined, 0.5)).toBe("breathe");
   });
   it("fills nudge settings for older saved settings", () => {
-    const { nudges, alternatives, show, ...old } = structuredClone(defaults);
+    const { nudges, alternatives, show, inherit, ...old } = structuredClone(defaults);
     const s = validateSettings(old);
     expect(s.show).toEqual(show);
+    expect(s.inherit).toBe(inherit);
     expect(s.nudges).toEqual(nudges);
     expect(s.alternatives).toEqual(alternatives);
   });

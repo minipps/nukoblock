@@ -22,6 +22,7 @@ export type Settings = {
   nudges: Nudge[];
   alternatives: string[];
   show: { badge: boolean; page: boolean };
+  inherit: boolean;
 };
 export const defaults: Settings = {
   version: 1,
@@ -41,6 +42,7 @@ export const defaults: Settings = {
     "read a few pages of a book",
   ],
   show: { badge: true, page: false },
+  inherit: true,
 };
 export function normalize(input: string) {
   const u = new URL(input.includes("://") ? input : `https://${input}`);
@@ -90,6 +92,7 @@ export function validateSettings(value: unknown): Settings {
   s.nudges ??= [...defaults.nudges];
   s.alternatives ??= [...defaults.alternatives];
   s.show ??= { ...defaults.show };
+  s.inherit ??= defaults.inherit;
   const policy = (p: Policy) =>
     p &&
     ["track", "limit", "block"].includes(p.mode) &&
@@ -106,6 +109,7 @@ export function validateSettings(value: unknown): Settings {
     !s.alternatives.every((a) => typeof a === "string" && a.length > 0 && a.length <= 200) ||
     typeof s.show?.badge !== "boolean" ||
     typeof s.show.page !== "boolean" ||
+    typeof s.inherit !== "boolean" ||
     !["background", "surface", "text", "accent"].every((k) => hexColor.test(s.colors[k] ?? ""))
   )
     throw Error("Unsupported or invalid settings");

@@ -198,7 +198,7 @@ export default defineBackground(() => {
       const id = sender.tab.id;
       // A tab opened from one that already passed the nudge inherits its grant, deadline included.
       const opener = session.grants[sender.tab.openerTabId ?? -1];
-      if (message.type === "pause" && opener?.site === site.id) {
+      if (message.type === "pause" && settings.inherit && opener?.site === site.id) {
         session.grants[id] = { ...opener, last: Date.now() };
         await browser.storage.session.set({ runtime: session });
         await reconcile();
