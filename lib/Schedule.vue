@@ -8,7 +8,8 @@ const days = ref([1, 2, 3, 4, 5]),
   end = ref("17:00"),
   mode = ref<Policy["mode"]>("block"),
   minutes = ref(60),
-  error = ref("");
+  error = ref(""),
+  editing = ref<number | null>(null);
 const names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const glyph = { block: "█", limit: "▒", track: "░" };
 const quick = { weekdays: [1, 2, 3, 4, 5], weekend: [0, 6], "every day": [0, 1, 2, 3, 4, 5, 6] };
@@ -48,6 +49,7 @@ function add() {
     error.value = "Choose days, distinct times and a positive allowance.";
     return;
   }
+  const i = editing.value;
   const w: Window = {
     days: [...days.value],
     start: start.value,
@@ -55,17 +57,34 @@ function add() {
     policy: {
       mode: mode.value,
       minutes: minutes.value,
-      pause: props.site.policy.pause,
+      pause: (i === null ? props.site : props.site.windows[i]!).policy.pause,
     },
   };
   const occupied = slots(w);
-  if (props.site.windows.some((x) => [...slots(x)].some((m) => occupied.has(m)))) {
+  if (props.site.windows.some((x, j) => j !== i && [...slots(x)].some((m) => occupied.has(m)))) {
     error.value = "This window overlaps another schedule.";
     return;
   }
-  props.site.windows.push(w);
+  if (i === null) props.site.windows.push(w);
+  else props.site.windows[i] = w;
   emit("save");
+  editing.value = null;
   error.value = "";
+}
+function edit(i: number) {
+  const w = props.site.windows[i]!;
+  days.value = [...w.days];
+  start.value = w.start;
+  end.value = w.end;
+  mode.value = w.policy.mode;
+  minutes.value = w.policy.minutes;
+  editing.value = i;
+  error.value = "";
+}
+function remove(i: number) {
+  props.site.windows.splice(i, 1);
+  emit("save");
+  editing.value = null;
 }
 </script>
 <template>
@@ -79,15 +98,8 @@ function add() {
         <span class="grow"
           >{{ label(w) }} {{ w.start }}–{{ w.end }} → {{ w.policy.mode }}
           {{ w.policy.mode === "limit" ? w.policy.minutes + " min" : "" }}</span
-        ><button
-          class="danger"
-          @click="
-            site.windows.splice(i, 1);
-            emit('save');
-          "
-        >
-          remove
-        </button>
+        ><button :aria-pressed="editing === i" @click="edit(i)">edit</button
+        ><button class="danger" @click="remove(i)">remove</button>
       </li>
     </ul>
     <fieldset class="row">
@@ -112,7 +124,10 @@ function add() {
         <input v-model.number="minutes" type="number" min="1" aria-label="Daily minutes" /> min
       </label>
     </fieldset>
-    <button class="primary" @click="add">+ add window</button>
+    <button class="primary" @click="add">
+      {{ editing === null ? "+ add window" : "save window" }}
+    </button>
+    <button v-if="editing !== null" @click="editing = null">cancel</button>
     <p v-if="error" role="alert" class="warn">! {{ error }}</p>
   </details>
 </template>
