@@ -43,6 +43,12 @@ jobs:
           path: .output/*.zip
           if-no-files-found: error
           include-hidden-files: true
+      - name: Submit to addons.mozilla.org
+        env:
+          FIREFOX_EXTENSION_ID: nukoblock@nukoblock.local
+          FIREFOX_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          FIREFOX_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: npx wxt submit --firefox-zip .output/*-firefox.zip --firefox-sources-zip .output/*-sources.zip
 
   publish:
     needs: build
