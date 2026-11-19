@@ -7,6 +7,12 @@
 
 A local-only browser extension for Chrome and Firefox that sets daily time budgets for sites, with weekly schedules, an optional pause before entering, and an ASCII cat.
 
+<p align="center"><img src="docs/gate.png" width="720" alt="The pause page: an ASCII cat asks &quot;What brought you here?&quot; with a breathing timer before you can continue to youtube.com"></p>
+
+| Popup                                                              | Watched sites                                                                        | Stats                                                                            |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| <img src="docs/popup.png" alt="Popup with today's usage per site"> | <img src="docs/options.png" alt="Settings: per-site policy, daily budget and nudge"> | <img src="docs/stats.png" alt="Settings: 7-day usage history and today by site"> |
+
 ## How it works
 
 - Add sites from presets or paste domains/paths. New entries default to 30 min/day with an entry pause.
