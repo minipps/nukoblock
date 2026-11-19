@@ -157,6 +157,35 @@ it("lets a 'how long' nudge through only with a duration, then sends the tab bac
     url: "chrome-extension://test/gate.html#" + url,
   });
 });
+it("lets tabs opened from a granted tab skip the nudge, keeping its deadline", async () => {
+  local.settings.sites[0].policy.pause = true;
+  local.settings.nudges = ["duration"];
+  await import("../entrypoints/background");
+  await flush();
+  const b = (globalThis as any).browser;
+  const handler = b.runtime.onMessage.addListener.mock.calls[0][0];
+  const gate = "chrome-extension://test/gate.html#";
+  const url = "https://youtube.com/watch?v=1";
+  await handler({ type: "pause", url }, { tab: { id: 1 }, url: gate + url });
+  await handler({ type: "continue", url, minutes: 5 }, { tab: { id: 1 }, url: gate + url });
+  const child = "https://youtube.com/watch?v=3";
+  tabs.push({ id: 3, url: gate + child, openerTabId: 1, windowId: 1 });
+  expect(
+    await handler(
+      { type: "pause", url: child },
+      { tab: { id: 3, openerTabId: 1 }, url: gate + child },
+    ),
+  ).toEqual({ blocked: false });
+  expect(session.runtime.grants[3]).toMatchObject({ site: "video", until: Date.now() + 300000 });
+  expect(b.tabs.update).toHaveBeenCalledWith(3, { url: child });
+  tabs.push({ id: 4, url: gate + child, openerTabId: 2, windowId: 1 });
+  expect(
+    await handler(
+      { type: "pause", url: child },
+      { tab: { id: 4, openerTabId: 2 }, url: gate + child },
+    ),
+  ).toMatchObject({ nudge: "duration" });
+});
 it("shows today's time in the badge and, when enabled, on the page", async () => {
   local.usage = { [day()]: { video: 65 * 60000 } };
   local.settings.show = { badge: true, page: true };

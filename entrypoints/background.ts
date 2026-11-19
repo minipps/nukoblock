@@ -196,6 +196,15 @@ export default defineBackground(() => {
         (policy.mode === "limit" && (usage[day()]?.[site.id] ?? 0) >= policy.minutes * 60000);
       if (blocked) return { blocked: true };
       const id = sender.tab.id;
+      // A tab opened from one that already passed the nudge inherits its grant, deadline included.
+      const opener = session.grants[sender.tab.openerTabId ?? -1];
+      if (message.type === "pause" && opener?.site === site.id) {
+        session.grants[id] = { ...opener, last: Date.now() };
+        await browser.storage.session.set({ runtime: session });
+        await reconcile();
+        await browser.tabs.update(id, { url: message.url });
+        return { blocked: false };
+      }
       if (message.type === "pause") {
         // Reloading the gate keeps its nudge, so the breathing wait can't be re-rolled away.
         if (session.pauses[id]?.url !== message.url) {
