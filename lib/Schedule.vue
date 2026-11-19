@@ -112,6 +112,7 @@ function remove(i: number) {
     <div class="row">
       <label>from <input v-model="start" type="time" /></label>
       <label>to <input v-model="end" type="time" /></label>
+      <button @click="((start = '00:00'), (end = '23:59'))">full day</button>
     </div>
     <fieldset class="row">
       <legend>during this window</legend>
