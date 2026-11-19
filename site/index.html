@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nukoblock</title>
+    <meta
+      name="description"
+      content="A local-only browser extension for Chrome and Firefox that sets daily time budgets for sites, with weekly schedules, a pause before entering, and an ASCII cat."
+    />
+    <link rel="icon" href="icon.svg" />
+    <!-- copied from lib/style.css by the pages workflow -->
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      .banner {
+        font-size: clamp(6px, 2.2vw, 13px);
+      }
+      .cat {
+        font-size: clamp(9px, 3vw, 15px);
+      }
+      a.btn {
+        color: var(--text);
+        text-decoration: none;
+        padding: 2px 4px;
+        white-space: nowrap;
+      }
+      a.btn::before {
+        content: "[ ";
+        color: var(--accent);
+      }
+      a.btn::after {
+        content: " ]";
+        color: var(--accent);
+      }
+      a.btn:hover,
+      a.btn.primary {
+        background: var(--accent);
+        color: var(--background);
+      }
+      a.btn:hover::before,
+      a.btn:hover::after,
+      a.btn.primary::before,
+      a.btn.primary::after {
+        color: inherit;
+      }
+      a.btn.primary:hover {
+        background: var(--text);
+      }
+      .gate {
+        padding-top: 8px;
+      }
+      .list li {
+        display: block;
+        position: relative;
+        padding-left: 2ch;
+      }
+      .list li::before {
+        position: absolute;
+        left: 0;
+      }
+      pre.dim {
+        overflow-x: auto;
+      }
+      ol {
+        padding-left: 3ch;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <main>
+        <header class="hero">
+          <pre class="cat" aria-hidden="true">
+          .-.           .-.
+         /   \         /   \
+        |  .  '-------'  .  |
+       /                     \
+      |                       |
+      |     (o)       (o)     |
+    --|-          w          -|--
+    --|-  ///           ///  -|--
+       \                     /
+        '-._             _.-'
+           /'-----------'\        __
+          |               |     /  )
+          |   _       _   |     /  /
+           \ ( )     ( ) /_____/  /
+            '-'-------'-'-------'</pre>
+          <div>
+            <h1 class="sr-only">Nukoblock</h1>
+            <pre class="banner" aria-hidden="true">
+█▄  █ █   █ █  ▄▀ ▄▀▀▀▄ █▀▀▀▄ █     ▄▀▀▀▄ ▄▀▀▀▀ █  ▄▀
+█ ▀▄█ █   █ █▀▀▄  █   █ █▀▀▀▄ █     █   █ █     █▀▀▄
+▀   ▀  ▀▀▀  ▀   ▀  ▀▀▀  ▀▀▀▀  ▀▀▀▀▀  ▀▀▀   ▀▀▀▀ ▀   ▀</pre>
+            <p>your time, intentionally.<span class="cursor">_</span></p>
+            <p class="dim">daily time budgets for sites, for Chrome and Firefox.</p>
+            <p class="row">
+              <a class="btn primary" href="#install">install</a>
+              <a class="btn" href="https://github.com/minipps/nukoblock">github</a>
+            </p>
+          </div>
+        </header>
+
+        <section class="panel">
+          <h2>what it does</h2>
+          <ul class="list">
+            <li>give each site a daily budget. new entries start at 30 min/day.</li>
+            <li>
+              pick a mode per site: <b>track</b> (just count), <b>limit</b> (blocked once the budget
+              runs out, resets at midnight) or <b>block</b> (always).
+            </li>
+            <li>
+              weekly schedules override the base budget. overnight windows count toward the day they
+              start.
+            </li>
+            <li>
+              an optional pause before entering: breathe, pick something else to do, say how you
+              feel, or decide how long to stay.
+            </li>
+            <li>30 days of stats, drawn in ASCII.</li>
+            <li>themes: mocha, latte, phosphor, amber, sakura, or your own colors.</li>
+          </ul>
+        </section>
+
+        <section class="panel">
+          <h2>the pause</h2>
+          <div class="gate">
+            <p class="bubble">What brought you here?</p>
+            <p class="dim">&gt; example.com · 12 min today · take a moment before you decide</p>
+            <p class="breath"><span class="meter">██████░░░░</span> breathe in…</p>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>private by design</h2>
+          <ul class="list">
+            <li>everything stays in your browser. no telemetry, accounts or servers.</li>
+            <li>
+              time counts for the focused tab and audible background tabs. several tabs of one site
+              count once.
+            </li>
+            <li>
+              it's a self-control tool, not tamper protection. embedded content and private windows
+              aren't covered.
+            </li>
+          </ul>
+        </section>
+
+        <section class="panel" id="install">
+          <h2>install</h2>
+          <h3>firefox</h3>
+          <p class="row">
+            <a class="btn primary" href="https://addons.mozilla.org/firefox/addon/nukoblock/"
+              >get it on addons.mozilla.org</a
+            >
+          </p>
+          <h3>chrome</h3>
+          <ol>
+            <li>
+              download the <code>-chrome.zip</code> from the
+              <a href="https://github.com/minipps/nukoblock/releases/latest">latest release</a> and
+              unzip it.
+            </li>
+            <li>open <code>chrome://extensions</code> and turn on <b>developer mode</b>.</li>
+            <li>click <b>load unpacked</b> and pick the unzipped folder.</li>
+          </ol>
+          <h3>from source</h3>
+          <pre class="dim">
+git clone https://github.com/minipps/nukoblock
+cd nukoblock && npm ci && npm run build</pre>
+        </section>
+      </main>
+      <footer>-- local to your browser. your time belongs to you. --</footer>
+    </div>
+  </body>
+</html>

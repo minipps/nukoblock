@@ -1,3 +1,5 @@
 node_modules/
 .wxt/
 .output/
+site/style.css
+site/icon.svg
